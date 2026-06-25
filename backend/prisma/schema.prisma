@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ANALYST
+  VIEWER
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+}
+
+enum EventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  PASSWORD_RESET
+  ROLE_CHANGE
+  ACCESS_DENIED
+  VPN_CONNECT
+  VPN_DISCONNECT
+  FILE_DOWNLOAD
+  EMAIL_SENT
+  CONFIG_CHANGE
+}
+
+enum LogStatus {
+  NORMAL
+  SUSPICIOUS
+  MALICIOUS
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  fullname     String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role     @default(VIEWER)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  assignedAlerts Alert[]
+
+  @@map("users")
+}
+
+model Log {
+  id           Int       @id @default(autoincrement())
+  timestamp    DateTime  @default(now())
+  sourceIp     String    @map("source_ip")
+  destinationIp String   @map("destination_ip")
+  username     String
+  eventType    EventType @map("event_type")
+  severity     Severity
+  status       LogStatus @default(NORMAL)
+
+  alerts Alert[]
+
+  @@map("logs")
+}
+
+model Alert {
+  id          Int         @id @default(autoincrement())
+  logId       Int         @map("log_id")
+  severity    Severity
+  title       String
+  description String
+  status      AlertStatus @default(OPEN)
+  assignedTo  Int?        @map("assigned_to")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  log       Log   @relation(fields: [logId], references: [id])
+  assigned  User? @relation(fields: [assignedTo], references: [id])
+
+  @@map("alerts")
+}
+
+model Incident {
+  id        Int       @id @default(autoincrement())
+  title     String
+  severity  Severity
+  status    String    @default("OPEN")
+  openedAt  DateTime  @default(now()) @map("opened_at")
+  closedAt  DateTime? @map("closed_at")
+
+  @@map("incidents")
+}
+
+model ThreatIntelligence {
+  id             Int     @id @default(autoincrement())
+  ipAddress      String  @unique @map("ip_address")
+  threatType     String  @map("threat_type")
+  confidenceScore Int    @map("confidence_score")
+
+  @@map("threat_intelligence")
+}
+
+model DetectionRule {
+  id        Int      @id @default(autoincrement())
+  name      String
+  condition String
+  severity  Severity
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("detection_rules")
+}
